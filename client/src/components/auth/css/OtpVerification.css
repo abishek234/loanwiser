@@ -1,0 +1,310 @@
+/* OTP Verification Styles */
+.otp-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 80vh;
+    padding: 20px;
+    background: linear-gradient(135deg, hwb(0 100% 0%) 0%, #ffffff 100%);
+  }
+  
+  .otp-card {
+    width: 100%;
+    max-width: 480px;
+    background-color: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+    animation: slideUp 0.5s ease-out;
+  }
+  
+  .otp-header {
+    background-color: #0d6efd;
+    color: white;
+    padding: 25px 20px;
+    text-align: center;
+    border-radius: 10px 10px 0 0;
+  }
+  
+  .otp-header h2 {
+    margin: 0;
+    font-size: 1.75rem;
+    font-weight: 600;
+  }
+  
+  .otp-content {
+    padding: 25px;
+  }
+  
+  .otp-message {
+    text-align: center;
+    margin-bottom: 20px;
+    color: #495057;
+    font-size: 1rem;
+  }
+  
+  .email-highlight {
+    display: block;
+    font-weight: 600;
+    color: #0d6efd;
+    margin-top: 5px;
+  }
+  
+  .otp-form {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .otp-inputs {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 20px;
+    width: 100%;
+  }
+  
+  .otp-input {
+    width: 50px;
+    height: 60px;
+    font-size: 1.5rem;
+    text-align: center;
+    border: 1px solid #ced4da;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+  }
+  
+  .otp-input:focus {
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.25);
+    outline: none;
+  }
+  
+  .otp-input::-webkit-inner-spin-button,
+  .otp-input::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  
+  .timer {
+    text-align: center;
+    margin-bottom: 20px;
+    color: #6c757d;
+    font-size: 0.875rem;
+  }
+  
+  .otp-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+  }
+  
+  .btn {
+    display: block;
+    width: 100%;
+    padding: 12px 15px;
+    font-size: 1rem;
+    font-weight: 500;
+    text-align: center;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+  
+  .btn-primary {
+    background-color: #0d6efd;
+    color: white;
+  }
+  
+  .btn-primary:hover:not(:disabled) {
+    background-color: #0b5ed7;
+    transform: translateY(-2px);
+  }
+  
+  .btn-outline {
+    background-color: transparent;
+    border: 1px solid #ced4da;
+    color: #6c757d;
+  }
+  
+  .btn-active {
+    border-color: #0d6efd;
+    color: #0d6efd;
+  }
+  
+  .btn-active:hover {
+    background-color: rgba(13, 110, 253, 0.1);
+  }
+  
+  .btn-disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+  
+  .btn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+    transform: none;
+  }
+  
+  .alert {
+    position: relative;
+    padding: 14px 15px;
+    margin-top: 15px;
+    margin-bottom: 15px;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    animation: fadeIn 0.3s ease-out;
+  }
+  
+  .alert-success {
+    background-color: #d1e7dd;
+    color: #0f5132;
+    border: 1px solid #badbcc;
+  }
+  
+  .alert-danger {
+    background-color: #f8d7da;
+    color: #842029;
+    border: 1px solid #f5c2c7;
+  }
+  
+  .close-btn {
+    position: absolute;
+    top: 10px;
+    right: 15px;
+    background: none;
+    border: none;
+    font-size: 1.25rem;
+    line-height: 1;
+    cursor: pointer;
+    color: inherit;
+    opacity: 0.7;
+  }
+  
+  .close-btn:hover {
+    opacity: 1;
+  }
+  
+  /* Animations */
+  @keyframes slideUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  
+  /* Responsive adjustments */
+  @media (max-width: 576px) {
+    .otp-container {
+      padding: 10px;
+    }
+  
+    .otp-card {
+      border-radius: 10px;
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+    }
+  
+    .otp-header {
+      padding: 20px 15px;
+    }
+  
+    .otp-header h2 {
+      font-size: 1.5rem;
+    }
+  
+    .otp-content {
+      padding: 20px 15px;
+    }
+  
+    .otp-message {
+      font-size: 0.95rem;
+    }
+  
+    .email-highlight {
+      font-size: 0.95rem;
+      word-break: break-word;
+    }
+  
+    .otp-inputs {
+        display: grid;
+        grid-template-columns: repeat(6, 1fr);
+        gap: 10px;
+        max-width: 100%;
+        justify-content: center;
+      }
+      
+      .otp-input {
+        width: 100%;
+        max-width: 45px;
+        height: 55px;
+        font-size: 1.4rem;
+      }
+  
+    .btn {
+      padding: 10px 12px;
+      font-size: 0.95rem;
+    }
+  
+    .timer {
+      font-size: 0.8rem;
+    }
+  
+    .otp-actions {
+      gap: 8px;
+    }
+    .alert {
+      padding: 16px 45px 16px 16px;
+      font-size: 0.85rem;
+    }
+  }
+  
+  /* Focus animation */
+  .otp-input:focus {
+    animation: pulse 1.5s infinite;
+  }
+  
+  @keyframes pulse {
+    0% {
+      box-shadow: 0 0 0 0 rgba(13, 110, 253, 0.4);
+    }
+    70% {
+      box-shadow: 0 0 0 5px rgba(13, 110, 253, 0);
+    }
+    100% {
+      box-shadow: 0 0 0 0 rgba(13, 110, 253, 0);
+    }
+  }
+
+  @media (max-width: 400px) {
+    .otp-input {
+      max-width: 38px;
+      height: 50px;
+      font-size: 1.2rem;
+    }
+    .alert {
+        padding: 16px 45px 16px 16px;
+        font-size: 14px;
+      }
+    
+      .alert .close-btn {
+        top: 8px;
+        right: 10px;
+        font-size: 20px;
+      }
+  }
