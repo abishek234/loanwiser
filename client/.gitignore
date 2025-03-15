@@ -22,3 +22,207 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+#import React, { useState, useEffect } from 'react';
+import 'bootstrap/dist/css/bootstrap.min.css';
+import { Container, Row, Col, Button, Card } from 'react-bootstrap';
+import { FaTrash } from 'react-icons/fa';
+import AddApplicantModal from '../modal/AddApplicantModal';
+import { getApplicants, createApplicant } from '../services/ApplicantServices';
+
+const DocumentUpload = () => {
+  const [showModal, setShowModal] = useState(false);
+  const [applicants, setApplicants] = useState([]);
+  const [selectedApplicantIndex, setSelectedApplicantIndex] = useState(0);
+  const [documents, setDocuments] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    fetchApplicants();
+  }, []);
+
+  const fetchApplicants = async () => {
+    try {
+      setLoading(true);
+      const response = await getApplicants();
+      if (response.success) {
+        setApplicants(response.data || []);
+      }
+    } catch (error) {
+      console.error('Error fetching applicants:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleClose = () => setShowModal(false);
+  const handleShow = () => setShowModal(true);
+
+  const handleSave = async (name) => {
+    if (name.trim()) {
+      try {
+        setLoading(true);
+        const response = await createApplicant(name);
+        if (response.success) {
+          await fetchApplicants();
+        }
+      } catch (error) {
+        console.error('Error creating applicant:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    handleClose();
+  };
+
+  const handleAddDocument = () => {
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = '.pdf,.doc,.docx';
+    fileInput.multiple = true;
+
+    fileInput.onchange = (e) => {
+      const files = Array.from(e.target.files);
+      const newDocuments = files.map(file => ({
+        id: Date.now() + Math.random().toString(36).substring(2, 10),
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        applicantIndex: selectedApplicantIndex
+      }));
+
+      setDocuments([...documents, ...newDocuments]);
+    };
+
+    fileInput.click();
+  };
+
+  const handleDeleteDocument = (id) => {
+    setDocuments(documents.filter(doc => doc.id !== id));
+  };
+
+  const handleDeleteApplicant = (index) => {
+    if (applicants.length > 1) {
+      const updatedApplicants = [...applicants];
+      updatedApplicants.splice(index, 1);
+      setApplicants(updatedApplicants);
+      if (selectedApplicantIndex >= updatedApplicants.length) {
+        setSelectedApplicantIndex(updatedApplicants.length - 1);
+      }
+    }
+  };
+
+  const navigateApplicants = (direction) => {
+    if (applicants.length === 0) return;
+    let newIndex = selectedApplicantIndex + direction;
+    if (newIndex < 0) newIndex = applicants.length - 1;
+    if (newIndex >= applicants.length) newIndex = 0;
+    setSelectedApplicantIndex(newIndex);
+  };
+
+  return (
+    <Container fluid className="px-0 py-md-1">
+      <Card className="shadow-sm border rounded-1 w-100 mx-auto">
+        <Card.Body className="py-4 px-2 px-md-4">
+          <Row className="mb-4 d-flex justify-content-between align-items-center">
+            <Col>
+              <h1 className="text-secondary">Document Upload</h1>
+            </Col>
+            <Col xs="auto">
+              <Button variant="primary" onClick={handleShow} className="rounded">+ Add Applicant</Button>
+            </Col>
+          </Row>
+
+          {/* Applicant List */}
+          <div className="position-relative mb-3">
+            <div className="d-flex overflow-auto position-relative">
+              {applicants.map((applicant, index) => (
+                <div
+                  key={applicant.id}
+                  className="d-flex flex-column align-items-center px-3 py-2 me-3 position-relative"
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => setSelectedApplicantIndex(index)}
+                >
+                  <div className="d-flex align-items-center">
+                    {/* Applicant Name */}
+                    <span className={`fw-bold me-2 ${selectedApplicantIndex === index ? 'text-primary' : 'text-secondary'}`}>
+                      {applicant.name}
+                    </span>
+
+                    {/* Delete Button (Right of Name) */}
+                    <Button
+                      variant="primary"
+                      className="p-1"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteApplicant(index);
+                      }}
+                    >
+                      <FaTrash className="text-white" />
+                    </Button>
+                  </div>
+
+                </div>
+              ))}
+            </div>
+
+            {/* Big Gray Line with Blue Indicator */}
+            <div className="position-relative w-100" style={{ borderBottom: '2px solid #ccc', marginTop: '5px' }}>
+              <div
+                className="position-absolute"
+                style={{
+                  height: '3px',
+                  backgroundColor: '#007bff',
+                  width: `${25 / applicants.length}%`, // Distributes equally for each applicant
+                  left: `${selectedApplicantIndex * (23 / applicants.length)}%`,
+                  transition: 'left 0.3s ease-in-out'
+                }}
+              />
+            </div>
+          </div>
+
+          {/* Document Section */}
+          <div className="mb-4">
+            {documents.filter(doc => doc.applicantIndex === selectedApplicantIndex).length > 0 ? (
+              documents.filter(doc => doc.applicantIndex === selectedApplicantIndex).map(doc => (
+                <Row key={doc.id} className="align-items-center mb-2 pb-2 border-bottom">
+                  <Col className="d-flex align-items-center">
+                    <Button variant="light" className="text-primary p-1 me-2" onClick={() => handleDeleteDocument(doc.id)}>
+                      <FaTrash />
+                    </Button>
+                    <div>
+                      <p className="mb-0">{doc.name}</p>
+                      <small className="text-muted">{(doc.size / 1024).toFixed(2)} KB</small>
+                    </div>
+                  </Col>
+                </Row>
+              ))
+            ) : (
+              <div className="text-center py-5">
+                <p className="mb-0">No documents available</p>
+                <Button variant="primary" className="mt-3" onClick={handleAddDocument}>
+                  <span className="me-1">+</span> Add
+                </Button>
+              </div>
+            )}
+          </div>
+
+          {/* Navigation Buttons */}
+          <Row className="mt-4 d-flex justify-content-between">
+            <Col xs="auto">
+              <Button variant="primary" className="px-4 py-2" onClick={() => navigateApplicants(-1)}>← Back</Button>
+            </Col>
+            <Col xs="auto">
+              <Button variant="primary" className="px-4 py-2" onClick={() => navigateApplicants(1)}>Next →</Button>
+            </Col>
+          </Row>
+
+          {/* Add Applicant Modal */}
+          <AddApplicantModal show={showModal} handleClose={handleClose} handleSave={handleSave} />
+        </Card.Body>
+      </Card>
+    </Container>
+  );
+};
+
+export default DocumentUpload;
