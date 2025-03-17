@@ -10,6 +10,7 @@ import { uploadDocument } from '../services/documentService';
 import { createDocumentType, getDocumentTypesByApplicant } from '../services/documenttypeServices';
 import AuthContext from '../../context/AuthContext';
 
+
 const DocumentUpload = () => {
   // State variables
   const [currentStep, setCurrentStep] = useState(1); // 1: Initial, 2: After Add Applicant, 3: After Add Document
