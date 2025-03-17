@@ -10,7 +10,7 @@ export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   // API base URL
-  const API_URL = 'http://localhost:8000/api/users';
+  const API_URL = 'https://loanwiser.onrender.com/api/users';
 
   // Load user from localStorage on refresh/initial load
   useEffect(() => {

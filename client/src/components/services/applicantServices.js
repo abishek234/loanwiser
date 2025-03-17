@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = 'http://localhost:8000/api/applicant';
+const API_URL = 'https://loanwiser.onrender.com/api/applicant';
 
 // Create axios instance with auth header
 const createAuthHeader = () => {
