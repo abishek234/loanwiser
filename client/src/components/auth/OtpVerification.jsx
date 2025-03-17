@@ -1,7 +1,17 @@
 import React, { useState, useContext, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AuthContext from '../../context/AuthContext';
-import './css/OtpVerification.css';
+import { 
+  Container, 
+  Card, 
+  Form, 
+  Button, 
+  Alert, 
+  Row, 
+  Col,
+  InputGroup
+} from 'react-bootstrap';
+import 'bootstrap/dist/css/bootstrap.min.css';
 
 const OtpVerification = () => {
   const navigate = useNavigate();
@@ -40,7 +50,7 @@ const OtpVerification = () => {
     return () => clearInterval(timer);
   }, [navigate]);
 
-  // ✅ Auto-submit when all 6 digits are filled and valid
+  // Auto-submit when all 6 digits are filled and valid
   useEffect(() => {
     const otpValue = otp.join('');
     if (otpValue.length === 6 && /^\d{6}$/.test(otpValue)) {
@@ -149,32 +159,57 @@ const OtpVerification = () => {
     }
   };
 
+  // Custom CSS for OTP input focus animation
+  const otpInputStyle = {
+    width: '50px',
+    height: '60px',
+    fontSize: '1.5rem',
+    textAlign: 'center',
+    borderRadius: '8px'
+  };
+
   return (
-    <div className="otp-container">
-      <div className="otp-card">
-        <div className="otp-header">
-          <h2>Verify OTP</h2>
-        </div>
+    <Container className="d-flex justify-content-center align-items-center" style={{ minHeight: '80vh' }}>
+      <Card 
+        className="border-0 shadow" 
+        style={{ 
+          maxWidth: '480px',
+          width: '100%',
+          borderRadius: '12px',
+          overflow: 'hidden',
+          animation: 'slideUp 0.5s ease-out'
+        }}
+      >
+        <Card.Header 
+          className="text-center text-white py-4"
+          style={{ 
+            backgroundColor: '#0d6efd',
+            borderRadius: '10px 10px 0 0'
+          }}
+        >
+          <h2 className="mb-0 fs-4 fw-semibold">Verify OTP</h2>
+        </Card.Header>
 
-        {alert.show && (
-          <div className={`alert alert-${alert.variant}`}>
-            {alert.message}
-            <button type="button" className="close-btn" onClick={() => setAlert({ ...alert, show: false })}>
-              &times;
-            </button>
-          </div>
-        )}
+        <Card.Body className="p-4">
+          {alert.show && (
+            <Alert 
+              variant={alert.variant} 
+              dismissible
+              onClose={() => setAlert({ ...alert, show: false })}
+            >
+              {alert.message}
+            </Alert>
+          )}
 
-        <div className="otp-content">
-          <p className="otp-message">
+          <p className="text-center mb-4">
             Enter the 6-digit verification code sent to:
-            <span className="email-highlight"> {email}</span>
+            <span className="d-block fw-bold text-primary mt-1">{email}</span>
           </p>
 
-          <form ref={formRef} onSubmit={handleSubmit} className="otp-form">
-            <div className="otp-inputs">
+          <Form ref={formRef} onSubmit={handleSubmit}>
+            <div className="d-flex justify-content-center gap-2 mb-4">
               {otp.map((digit, index) => (
-                <input
+                <Form.Control
                   key={index}
                   ref={inputRefs[index]}
                   type="text"
@@ -183,13 +218,14 @@ const OtpVerification = () => {
                   onChange={(e) => handleChange(index, e)}
                   onKeyDown={(e) => handleKeyDown(index, e)}
                   onPaste={index === 0 ? handlePaste : undefined}
-                  className="otp-input"
+                  style={otpInputStyle}
+                  className="text-center"
                   required
                 />
               ))}
             </div>
 
-            <div className="timer">
+            <div className="text-center text-secondary mb-3" style={{ fontSize: '0.875rem' }}>
               {!canResend ? (
                 <span>Resend code in {formatTime(timeLeft)}</span>
               ) : (
@@ -197,28 +233,72 @@ const OtpVerification = () => {
               )}
             </div>
 
-            <div className="otp-actions">
-              <button
-                type="submit"
-                className="btn btn-primary"
-                disabled={loading || otp.some(digit => digit === '')}
-              >
-                {loading ? 'Verifying...' : 'Verify OTP'}
-              </button>
+            <div className="d-grid gap-2">
+             
 
-              <button
-                type="button"
-                className={`btn btn-outline ${canResend ? 'btn-active' : 'btn-disabled'}`}
+              <Button
+                variant={canResend ? "outline-primary" : "outline-secondary"}
+                className="py-2"
                 onClick={handleResendOTP}
                 disabled={!canResend || loading}
               >
                 Resend OTP
-              </button>
+              </Button>
             </div>
-          </form>
-        </div>
-      </div>
-    </div>
+          </Form>
+        </Card.Body>
+      </Card>
+
+      {/* Custom CSS for animations */}
+      <style type="text/css">
+        {`
+          @keyframes slideUp {
+            from {
+              opacity: 0;
+              transform: translateY(20px);
+            }
+            to {
+              opacity: 1;
+              transform: translateY(0);
+            }
+          }
+          
+          .form-control:focus {
+            border-color: #86b7fe;
+            box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+            animation: pulse 1.5s infinite;
+          }
+          
+          @keyframes pulse {
+            0% {
+              box-shadow: 0 0 0 0 rgba(13, 110, 253, 0.4);
+            }
+            70% {
+              box-shadow: 0 0 0 5px rgba(13, 110, 253, 0);
+            }
+            100% {
+              box-shadow: 0 0 0 0 rgba(13, 110, 253, 0);
+            }
+          }
+          
+          @media (max-width: 576px) {
+            .form-control {
+              width: 45px !important;
+              height: 55px !important;
+              font-size: 1.4rem !important;
+            }
+          }
+          
+          @media (max-width: 400px) {
+            .form-control {
+              width: 38px !important;
+              height: 50px !important;
+              font-size: 1.2rem !important;
+            }
+          }
+        `}
+      </style>
+    </Container>
   );
 };
 

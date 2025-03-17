@@ -28,7 +28,7 @@ const AddDocumentModal = ({ show, handleClose, handleSave }) => {
   return (
     <Modal show={show} onHide={onClose} centered className="border-0">
       <Modal.Header closeButton className="border-bottom pb-3">
-        <Modal.Title>Add Applicant</Modal.Title>
+        <Modal.Title>Add</Modal.Title>
       </Modal.Header>
       <Modal.Body className="pt-4 pb-5">
         <Form>

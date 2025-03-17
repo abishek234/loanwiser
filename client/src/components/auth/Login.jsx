@@ -1,7 +1,17 @@
 import React, { useState, useContext } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import AuthContext from '../../context/AuthContext';
-import './css/Login.css';
+import { 
+  Container, 
+  Card, 
+  Nav, 
+  Form, 
+  Button, 
+  Alert, 
+  Row, 
+  Col 
+} from 'react-bootstrap';
+import 'bootstrap/dist/css/bootstrap.min.css';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -96,103 +106,159 @@ const Login = () => {
   };
   
   return (
-    <div className="login-container">
-      <div className="login-card">
+    <Container className="d-flex justify-content-center align-items-center" style={{ minHeight: '80vh' }}>
+      <Card style={{ 
+        width: '100%', 
+        maxWidth: '400px',
+        boxShadow: '0 10px 30px rgba(0, 0, 0, 0.1)',
+        transition: 'transform 0.3s ease, box-shadow 0.3s ease',
+        borderRadius: '12px',
+        overflow: 'hidden'
+      }}
+      className="border-0"
+      >
         {/* Header */}
-        <div className="login-header">
-          <h2>Login to Your Account</h2>
-        </div>
+        <Card.Header 
+          className="text-center text-white py-4"
+          style={{ 
+            backgroundColor: '#0d6efd',
+            borderRadius: '10px 10px 0 0'
+          }}
+        >
+          <h2 className="mb-0 fs-4 fw-semibold">Login to Your Account</h2>
+        </Card.Header>
         
-        {/* Alert Message */}
-        {alert.show && (
-          <div className={`alert alert-${alert.variant}`}>
-            {alert.message}
-            <button type="button" className="close-btn" onClick={() => setAlert({ ...alert, show: false })}>
-              &times;
-            </button>
-          </div>
-        )}
-        
-        {/* Tabs */}
-        <div className="login-tabs">
-          <div 
-            className={`tab ${activeTab === 'otp' ? 'active' : ''}`}
-            onClick={() => setActiveTab('otp')}
+        <Card.Body className="p-0">
+          {/* Alert Message */}
+          {alert.show && (
+            <Alert 
+              variant={alert.variant} 
+              className="m-3 mb-0"
+              dismissible
+              onClose={() => setAlert({ ...alert, show: false })}
+            >
+              {alert.message}
+            </Alert>
+          )}
+          
+          {/* Login Tabs */}
+          <Nav 
+            variant="tabs" 
+            className="border-bottom"
+            activeKey={activeTab}
+            onSelect={(key) => setActiveTab(key)}
           >
-            Login with OTP
+            <Nav.Item style={{ flex: 1 }}>
+              <Nav.Link 
+                eventKey="otp" 
+                className="text-center py-3 rounded-0 border-0"
+                style={{ 
+                  color: activeTab === 'otp' ? '#0d6efd' : '#495057',
+                  backgroundColor: activeTab === 'otp' ? 'rgba(13, 110, 253, 0.05)' : 'transparent',
+                  borderBottom: activeTab === 'otp' ? '2px solid #0d6efd' : 'none'
+                }}
+              >
+                Login with OTP
+              </Nav.Link>
+            </Nav.Item>
+            <Nav.Item style={{ flex: 1 }}>
+              <Nav.Link 
+                eventKey="password" 
+                className="text-center py-3 rounded-0 border-0"
+                style={{ 
+                  color: activeTab === 'password' ? '#0d6efd' : '#495057',
+                  backgroundColor: activeTab === 'password' ? 'rgba(13, 110, 253, 0.05)' : 'transparent',
+                  borderBottom: activeTab === 'password' ? '2px solid #0d6efd' : 'none'
+                }}
+              >
+                Login with Password
+              </Nav.Link>
+            </Nav.Item>
+          </Nav>
+          
+          <div className="p-4">
+            {/* OTP Login Form */}
+            {activeTab === 'otp' && (
+              <Form onSubmit={handleOTPRequest}>
+                <Form.Group className="mb-3">
+                  <Form.Label className="fw-medium">Email Address</Form.Label>
+                  <Form.Control 
+                    type="email"
+                    value={email}
+                    onChange={handleEmailChange}
+                    isInvalid={!!errors.email}
+                    placeholder="Enter your email"
+                    required
+                  />
+                  <Form.Control.Feedback type="invalid">
+                    {errors.email}
+                  </Form.Control.Feedback>
+                </Form.Group>
+                
+                <Button 
+                  variant="primary" 
+                  type="submit" 
+                  className="w-100 py-2"
+                  disabled={loading}
+                >
+                  {loading ? 'Sending...' : 'Send OTP to Email'}
+                </Button>
+              </Form>
+            )}
+            
+            {/* Password Login Form */}
+            {activeTab === 'password' && (
+              <Form onSubmit={handlePasswordLogin}>
+                <Form.Group className="mb-3">
+                  <Form.Label className="fw-medium">Email Address</Form.Label>
+                  <Form.Control 
+                    type="email"
+                    value={email}
+                    onChange={handleEmailChange}
+                    isInvalid={!!errors.email}
+                    placeholder="Enter your email"
+                    required
+                  />
+                  <Form.Control.Feedback type="invalid">
+                    {errors.email}
+                  </Form.Control.Feedback>
+                </Form.Group>
+                
+                <Form.Group className="mb-3">
+                  <Form.Label className="fw-medium">Password</Form.Label>
+                  <Form.Control 
+                    type="password"
+                    value={password}
+                    onChange={handlePasswordChange}
+                    isInvalid={!!errors.password}
+                    placeholder="Enter your password"
+                    required
+                  />
+                  <Form.Control.Feedback type="invalid">
+                    {errors.password}
+                  </Form.Control.Feedback>
+                </Form.Group>
+                
+                <Button 
+                  variant="primary" 
+                  type="submit" 
+                  className="w-100 py-2"
+                  disabled={loading}
+                >
+                  {loading ? 'Logging in...' : 'Login'}
+                </Button>
+              </Form>
+            )}
           </div>
-          <div 
-            className={`tab ${activeTab === 'password' ? 'active' : ''}`}
-            onClick={() => setActiveTab('password')}
-          >
-            Login with Password
-          </div>
-        </div>
-        
-        {/* OTP Login Form */}
-        {activeTab === 'otp' && (
-          <form onSubmit={handleOTPRequest} className="login-form">
-            <div className="form-group">
-              <label>Email Address</label>
-              <input
-                type="email"
-                value={email}
-                onChange={handleEmailChange}
-                className={errors.email ? 'error' : ''}
-                placeholder="Enter your email"
-                required
-              />
-              {errors.email && <div className="error-message">{errors.email}</div>}
-            </div>
-            
-            <button type="submit" className="btn btn-primary" disabled={loading}>
-              {loading ? 'Sending...' : 'Send OTP to Email'}
-            </button>
-          </form>
-        )}
-        
-        {/* Password Login Form */}
-        {activeTab === 'password' && (
-          <form onSubmit={handlePasswordLogin} className="login-form">
-            <div className="form-group">
-              <label>Email Address</label>
-              <input
-                type="email"
-                value={email}
-                onChange={handleEmailChange}
-                className={errors.email ? 'error' : ''}
-                placeholder="Enter your email"
-                required
-              />
-              {errors.email && <div className="error-message">{errors.email}</div>}
-            </div>
-            
-            <div className="form-group">
-              <label>Password</label>
-              <input
-                type="password"
-                value={password}
-                onChange={handlePasswordChange}
-                className={errors.password ? 'error' : ''}
-                placeholder="Enter your password"
-                required
-              />
-              {errors.password && <div className="error-message">{errors.password}</div>}
-            </div>
-            
-            <button type="submit" className="btn btn-primary" disabled={loading}>
-              {loading ? 'Logging in...' : 'Login'}
-            </button>
-          </form>
-        )}
+        </Card.Body>
         
         {/* Register Link */}
-        <div className="register-link">
-          <p>Don't have an account?</p>
-          <Link to="/register">Register here</Link>
-        </div>
-      </div>
-    </div>
+        <Card.Footer className="text-center py-3 bg-light border-top">
+          <p className="mb-1 text-muted">Don't have an account?</p>
+          <Link to="/register" className="fw-medium text-decoration-none">Register here</Link>
+        </Card.Footer>
+      </Card>
+    </Container>
   );
 };
 

@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = 'http://localhost:8000/api';
+const API_URL = 'http://localhost:8000/api/document';
 
 // Create axios instance with auth header
 const createAuthHeader = () => {
@@ -50,10 +50,12 @@ export const uploadDocument = async (applicantId, name, file) => {
     // Create FormData for file upload
     const formData = new FormData();
     formData.append('name', name);
-    formData.append('file', file);
+    formData.append('document', file);
+
+    console.log("formdata",formData);
     
     const response = await axios.post(
-      `${API_URL}/documents/applicant/${applicantId}`, 
+      `${API_URL}/applicants/${applicantId}/documents`, 
       formData, 
       config
     );

@@ -6,6 +6,8 @@ const userRoutes = require('./routes/userRoutes');
 const errorHandler = require('./middleware/errorHandler');
 const applicantRoutes = require('./routes/applicantRoutes');
 const documentRoutes = require('./routes/documentRoutes');
+const documenttypeRoutes = require('./routes/documenttypeRoutes');
+
 
 // Load environment variables
 dotenv.config();
@@ -17,10 +19,14 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
+// Error handler
+app.use(errorHandler);
+
 // Routes
 app.use('/api/users', userRoutes);
 app.use('/api/applicant', applicantRoutes);
 app.use('/api/document', documentRoutes);
+app.use('/api/document-types', documenttypeRoutes);
 
 // Root route
 app.get('/', (req, res) => {

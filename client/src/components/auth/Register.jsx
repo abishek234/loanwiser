@@ -1,7 +1,15 @@
 import React, { useState, useContext, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import AuthContext from '../../context/AuthContext';
-import './css/Register.css';
+import { 
+  Container, 
+  Card, 
+  Form, 
+  Button, 
+  Alert, 
+  ProgressBar 
+} from 'react-bootstrap';
+import 'bootstrap/dist/css/bootstrap.min.css';
 
 const Register = () => {
   const navigate = useNavigate();
@@ -99,125 +107,179 @@ const Register = () => {
     }
   };
 
+  // Function to determine ProgressBar variant based on password strength
+  const getStrengthVariant = () => {
+    if (passwordStrength <= 1) return 'danger';
+    if (passwordStrength <= 3) return 'warning';
+    return 'success';
+  };
+
+  // Function to get password strength label
+  const getStrengthLabel = () => {
+    switch (passwordStrength) {
+      case 0: return 'Very Weak';
+      case 1: return 'Weak';
+      case 2: return 'Fair';
+      case 3: return 'Good';
+      case 4: return 'Strong';
+      case 5: return 'Very Strong';
+      default: return '';
+    }
+  };
+
   return (
-    <div className="register-container">
-      <div className="register-card">
-        <div className="register-header">
-          <h2>Create Your Account</h2>
-        </div>
+    <Container className="d-flex justify-content-center align-items-center" style={{ minHeight: '110vh' }}>
+      <Card style={{ 
+        width: '100%', 
+        maxWidth: '400px',
+        boxShadow: '0 2px 10px rgba(0, 0, 0, 0.05)',
+        borderRadius: '10px',
+        overflow: 'hidden'
+      }}
+      className="border-0"
+      >
+        {/* Header */}
+        <Card.Header 
+          className="text-center text-white py-4"
+          style={{ 
+            backgroundColor: '#0d6efd',
+            borderRadius: '10px 10px 0 0'
+          }}
+        >
+          <h2 className="mb-0 fs-4 fw-semibold">Create Your Account</h2>
+        </Card.Header>
+        
+        <Card.Body className="p-0">
+          {/* Alert Message */}
+          {alert.show && (
+            <Alert 
+              variant={alert.variant} 
+              className="m-3 mb-0"
+              dismissible
+              onClose={() => setAlert({ ...alert, show: false })}
+            >
+              {alert.message}
+            </Alert>
+          )}
+          
+          <div className="p-4">
+            <Form onSubmit={onSubmit}>
+              <Form.Group className="mb-3">
+                <Form.Label className="fw-medium">First Name</Form.Label>
+                <Form.Control 
+                  type="text"
+                  name="firstName"
+                  value={firstName}
+                  onChange={onChange}
+                  isInvalid={!!errors.firstName}
+                  placeholder="Enter your first name"
+                  required
+                />
+                <Form.Control.Feedback type="invalid">
+                  {errors.firstName}
+                </Form.Control.Feedback>
+              </Form.Group>
 
-        {alert.show && (
-          <div className={`alert alert-${alert.variant}`}>
-            {alert.message}
-            <button type="button" className="close-btn" onClick={() => setAlert({ ...alert, show: false })}>
-              &times;
-            </button>
+              <Form.Group className="mb-3">
+                <Form.Label className="fw-medium">Last Name</Form.Label>
+                <Form.Control 
+                  type="text"
+                  name="lastName"
+                  value={lastName}
+                  onChange={onChange}
+                  isInvalid={!!errors.lastName}
+                  placeholder="Enter your last name"
+                  required
+                />
+                <Form.Control.Feedback type="invalid">
+                  {errors.lastName}
+                </Form.Control.Feedback>
+              </Form.Group>
+
+              <Form.Group className="mb-3">
+                <Form.Label className="fw-medium">Email Address</Form.Label>
+                <Form.Control 
+                  type="email"
+                  name="email"
+                  value={email}
+                  onChange={onChange}
+                  isInvalid={!!errors.email}
+                  placeholder="Enter your email"
+                  required
+                />
+                <Form.Control.Feedback type="invalid">
+                  {errors.email}
+                </Form.Control.Feedback>
+              </Form.Group>
+
+              <Form.Group className="mb-3">
+                <Form.Label className="fw-medium">Password</Form.Label>
+                <Form.Control 
+                  type="password"
+                  name="password"
+                  value={password}
+                  onChange={onChange}
+                  isInvalid={!!errors.password}
+                  placeholder="Create a password"
+                  required
+                />
+                <Form.Control.Feedback type="invalid">
+                  {errors.password}
+                </Form.Control.Feedback>
+                
+                {password && (
+                  <div className="mt-2">
+                    <ProgressBar 
+                      now={passwordStrength * 20} 
+                      variant={getStrengthVariant()} 
+                      style={{ height: '5px' }}
+                    />
+                    <div className="d-flex justify-content-end mt-1">
+                      <small className="text-muted">{getStrengthLabel()}</small>
+                    </div>
+                  </div>
+                )}
+                
+                <Form.Text className="text-muted">
+                  Password must be at least 8 characters long and contain letters, special character and numbers.
+                </Form.Text>
+              </Form.Group>
+
+              <Form.Group className="mb-3">
+                <Form.Label className="fw-medium">Confirm Password</Form.Label>
+                <Form.Control 
+                  type="password"
+                  name="confirmPassword"
+                  value={confirmPassword}
+                  onChange={onChange}
+                  isInvalid={!!errors.confirmPassword}
+                  placeholder="Confirm your password"
+                  required
+                />
+                <Form.Control.Feedback type="invalid">
+                  {errors.confirmPassword}
+                </Form.Control.Feedback>
+              </Form.Group>
+
+              <Button 
+                variant="primary" 
+                type="submit" 
+                className="w-100 py-2 mt-2"
+                disabled={loading}
+              >
+                {loading ? 'Processing...' : 'Create Account'}
+              </Button>
+            </Form>
           </div>
-        )}
-
-        <form onSubmit={onSubmit} className="register-form">
-          <div className="form-group">
-            <label>First Name</label>
-            <input
-              type="text"
-              name="firstName"
-              value={firstName}
-              onChange={onChange}
-              className={errors.firstName ? 'error' : ''}
-              placeholder="Enter your first name"
-              required
-            />
-            {errors.firstName && <div className="error-message">{errors.firstName}</div>}
-          </div>
-
-          <div className="form-group">
-            <label>Last Name</label>
-            <input
-              type="text"
-              name="lastName"
-              value={lastName}
-              onChange={onChange}
-              className={errors.lastName ? 'error' : ''}
-              placeholder="Enter your last name"
-              required
-            />
-            {errors.lastName && <div className="error-message">{errors.lastName}</div>}
-          </div>
-
-          <div className="form-group">
-            <label>Email Address</label>
-            <input
-              type="email"
-              name="email"
-              value={email}
-              onChange={onChange}
-              className={errors.email ? 'error' : ''}
-              placeholder="Enter your email"
-              required
-            />
-            {errors.email && <div className="error-message">{errors.email}</div>}
-          </div>
-
-          <div className="form-group">
-            <label>Password</label>
-            <input
-              type="password"
-              name="password"
-              value={password}
-              onChange={onChange}
-              className={errors.password ? 'error' : ''}
-              placeholder="Create a password"
-              required
-            />
-            {errors.password && <div className="error-message">{errors.password}</div>}
-
-            <div className="password-strength">
-              <div className="strength-meter">
-                <div
-                  className={`strength-value strength-${passwordStrength}`}
-                  style={{ width: `${passwordStrength * 20}%` }}
-                ></div>
-              </div>
-              <div className="strength-label">
-                {passwordStrength === 0 && 'Very Weak'}
-                {passwordStrength === 1 && 'Weak'}
-                {passwordStrength === 2 && 'Fair'}
-                {passwordStrength === 3 && 'Good'}
-                {passwordStrength === 4 && 'Strong'}
-                {passwordStrength === 5 && 'Very Strong'}
-              </div>
-            </div>
-
-            <small className="form-text text-muted">
-              Password must be at least 8 characters long and contain letters,special character and numbers.
-            </small>
-          </div>
-
-          <div className="form-group">
-            <label>Confirm Password</label>
-            <input
-              type="password"
-              name="confirmPassword"
-              value={confirmPassword}
-              onChange={onChange}
-              className={errors.confirmPassword ? 'error' : ''}
-              placeholder="Confirm your password"
-              required
-            />
-            {errors.confirmPassword && <div className="error-message">{errors.confirmPassword}</div>}
-          </div>
-
-          <button type="submit" className="btn btn-primary" disabled={loading}>
-            {loading ? 'Processing...' : 'Create Account'}
-          </button>
-        </form>
-
-        <div className="login-link">
-          <p>Already have an account?</p>
-          <Link to="/login">Login here</Link>
-        </div>
-      </div>
-    </div>
+        </Card.Body>
+        
+        {/* Login Link */}
+        <Card.Footer className="text-center py-3 bg-light border-top">
+          <p className="mb-1 text-muted">Already have an account?</p>
+          <Link to="/login" className="fw-medium text-decoration-none text-primary">Login here</Link>
+        </Card.Footer>
+      </Card>
+    </Container>
   );
 };
 
