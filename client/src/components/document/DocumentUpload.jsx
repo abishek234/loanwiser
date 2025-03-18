@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useRef,useContext} from 'react';
+import React, { useState, useEffect, useRef, useContext} from 'react';
 import { useNavigate } from 'react-router-dom';
 import 'bootstrap/dist/css/bootstrap.min.css';
-import { Container, Row, Col, Button,Card } from 'react-bootstrap';
-import { FaTrash, FaPlus, FaUpload, FaTimes, FaArrowLeft, FaArrowRight,FaSignOutAlt } from 'react-icons/fa';
+import { Container, Row, Col, Button, Card } from 'react-bootstrap';
+import { FaTrash, FaPlus, FaUpload, FaTimes, FaArrowLeft, FaArrowRight, FaSignOutAlt } from 'react-icons/fa';
 import AddApplicantModal from '../modal/AddApplicantModal';
 import AddDocumentModal from '../modal/AddDocument';
 import { getApplicants, createApplicant, deleteApplicant } from '../services/applicantsServices';
@@ -28,6 +28,8 @@ const DocumentUpload = () => {
   const fileInputRef = useRef(null);
   const { logout } = useContext(AuthContext);
   const navigate = useNavigate();
+  const [selectedIndex, setSelectedIndex] = useState(0); // Index for the flattened navigation list
+  const [docTypesLoaded, setDocTypesLoaded] = useState(false); // Flag to track if doc types have been loaded
 
   const handleLogout = async () => {
     try {
@@ -47,22 +49,56 @@ const DocumentUpload = () => {
   useEffect(() => {
     if (applicants.length === 0) {
       setCurrentStep(1); // Initial view
-    } else if (documentTypes.length === 0) {
+    } else if (!docTypesLoaded || documentTypes.length === 0) {
       setCurrentStep(2); // After adding applicant
     } else {
       setCurrentStep(3); // After adding document type
     }
-  }, [applicants, documentTypes]);
+  }, [applicants, documentTypes, docTypesLoaded]);
 
-  // Fetch document types when selected applicant changes
+  // IMPORTANT: This replaces the old fetchDocumentTypes effect
+  // Fetch document types for ALL applicants when the applicant list changes
   useEffect(() => {
-    if (applicants.length > 0) {
-      const currentApplicantId = applicants[selectedApplicantIndex]?.id;
-      if (currentApplicantId) {
-        fetchDocumentTypes(currentApplicantId);
+    const fetchAllDocumentTypes = async () => {
+      if (applicants.length === 0) return;
+      
+      try {
+        setLoading(true);
+        // Create an array of promises to fetch document types for all applicants
+        const promises = applicants.map(applicant => 
+          getDocumentTypesByApplicant(applicant.id)
+            .then(response => {
+              // Make sure we have an array and add the applicantId to each doc type
+              const types = Array.isArray(response) ? response : [];
+              return types.map(type => ({
+                ...type,
+                applicantId: applicant.id
+              }));
+            })
+        );
+        
+        // Wait for all promises to resolve
+        const results = await Promise.all(promises);
+        
+        // Flatten the array of arrays into a single array of all document types
+        const allDocTypes = results.flat();
+        
+        setDocumentTypes(allDocTypes);
+        setDocTypesLoaded(true);
+        
+        // If we have doc types but no selection, set initial selection
+        if (allDocTypes.length > 0 && selectedDocumentTypeIndex === -1) {
+          setSelectedDocumentTypeIndex(0);
+        }
+      } catch (error) {
+        console.error('Error fetching document types:', error);
+      } finally {
+        setLoading(false);
       }
-    }
-  }, [applicants, selectedApplicantIndex]);
+    };
+    
+    fetchAllDocumentTypes();
+  }, [applicants]);
 
   // API Calls
   const fetchApplicants = async () => {
@@ -92,21 +128,12 @@ const DocumentUpload = () => {
     }
   };
 
-  const fetchDocumentTypes = async (applicantId) => {
-    try {
-      setLoading(true);
-      const response = await getDocumentTypesByApplicant(applicantId);
-      
-      // Make sure we're getting an array
-      const types = Array.isArray(response) ? response : [];
-      setDocumentTypes(types);
-      // Reset to first document type when list changes (or none if empty)
-      setSelectedDocumentTypeIndex(types.length > 0 ? 0 : -1);
-    } catch (error) {
-      console.error('Error fetching document types:', error);
-    } finally {
-      setLoading(false);
-    }
+  // Helper function to get document types for the selected applicant
+  const getDocumentTypesForSelectedApplicant = () => {
+    if (!applicants.length || selectedApplicantIndex < 0) return [];
+    
+    const currentApplicantId = applicants[selectedApplicantIndex]?.id;
+    return documentTypes.filter(dt => dt.applicantId === currentApplicantId);
   };
 
   // Modal Handlers
@@ -144,6 +171,7 @@ const DocumentUpload = () => {
     handleApplicantModalClose();
   };
 
+  // Updated to work with the all-applicants document types approach
   const handleAddDocument = async (documentName) => {
     if (!documentName.trim()) return;
 
@@ -157,7 +185,42 @@ const DocumentUpload = () => {
       setLoading(true);
       const response = await createDocumentType(documentName, currentApplicantId);
       if (response?.id) {
-        await fetchDocumentTypes(currentApplicantId);
+        // After adding a new document type, fetch all document types again
+        const promises = applicants.map(applicant => 
+          getDocumentTypesByApplicant(applicant.id)
+            .then(response => {
+              const types = Array.isArray(response) ? response : [];
+              return types.map(type => ({
+                ...type,
+                applicantId: applicant.id
+              }));
+            })
+        );
+        
+        const results = await Promise.all(promises);
+        const allDocTypes = results.flat();
+        
+        setDocumentTypes(allDocTypes);
+        
+        // Find and select the newly added document type
+        const newDocIndex = allDocTypes.findIndex(dt => dt.id === response.id);
+        if (newDocIndex !== -1) {
+          setSelectedDocumentTypeIndex(newDocIndex);
+          
+          // Update the global navigation index to point to this new doc
+          setTimeout(() => {
+            const flatList = getFlattenedList();
+            const newPairIndex = flatList.findIndex(item => 
+              item.applicant.id === currentApplicantId && 
+              item.docType?.id === response.id
+            );
+            
+            if (newPairIndex !== -1) {
+              setSelectedIndex(newPairIndex);
+            }
+          }, 100);
+        }
+        
         setCurrentStep(3); // Advance to final step
       }
     } catch (error) {
@@ -223,13 +286,81 @@ const DocumentUpload = () => {
     }
   };
 
-  // Navigation handlers
-  const navigateApplicants = (direction) => {
-    if (applicants.length === 0) return;
-    let newIndex = selectedApplicantIndex + direction;
-    if (newIndex < 0) newIndex = applicants.length - 1;
-    if (newIndex >= applicants.length) newIndex = 0;
-    setSelectedApplicantIndex(newIndex);
+  // COMPLETELY REWRITTEN - More reliable flattened list function
+  const getFlattenedList = () => {
+    if (!Array.isArray(applicants) || applicants.length === 0) return [];
+
+    const flatList = [];
+    
+    // For each applicant
+    for (let i = 0; i < applicants.length; i++) {
+      const applicant = applicants[i];
+      
+      // Skip if this applicant has no ID
+      if (!applicant.id) continue;
+      
+      // Find all document types for this applicant
+      const appDocTypes = documentTypes.filter(dt => dt.applicantId === applicant.id);
+      
+      if (appDocTypes && appDocTypes.length > 0) {
+        // Create a pair for each document type
+        for (let j = 0; j < appDocTypes.length; j++) {
+          const docType = appDocTypes[j];
+          const docTypeIndex = documentTypes.findIndex(dt => dt.id === docType.id);
+          
+          flatList.push({
+            applicantIndex: i,
+            docTypeIndex: docTypeIndex,
+            applicant: applicant,
+            docType: docType
+          });
+        }
+      } else {
+        // If no document types, still include the applicant
+        flatList.push({
+          applicantIndex: i,
+          docTypeIndex: -1,
+          applicant: applicant,
+          docType: null
+        });
+      }
+    }
+    
+    return flatList;
+  };
+
+  // IMPROVED - More reliable navigation function
+  const navigateApplicantDocuments = (direction) => {
+    const flatList = getFlattenedList();
+    if (flatList.length === 0) return;
+    
+    // Log current state for debugging
+    // console.log("Current List:", flatList.map(item => `${item.applicant.name} - ${item.docType?.name || 'None'}`));
+    // console.log("Current Index:", selectedIndex);
+    
+    let newIndex = selectedIndex + direction;
+    
+    // Wrap around the list if needed
+    if (newIndex < 0) newIndex = flatList.length - 1;
+    if (newIndex >= flatList.length) newIndex = 0;
+    
+    // console.log("New Index:", newIndex);
+    
+    const newPair = flatList[newIndex];
+    if (newPair) {
+      // Update the selection indices
+      setSelectedApplicantIndex(newPair.applicantIndex);
+      
+      if (newPair.docTypeIndex >= 0) {
+        setSelectedDocumentTypeIndex(newPair.docTypeIndex);
+      }
+      
+      // Update the global navigation index
+      setSelectedIndex(newIndex);
+      
+      // Log the new selection for debugging
+      // console.log("New Selection:", `${newPair.applicant.name} - ${newPair.docType?.name || 'None'}`);
+    }
   };
 
   // File handlers
@@ -412,602 +543,626 @@ const DocumentUpload = () => {
 
   // Render functions based on current step
   
-  const renderInitialView = () => (
-    <Container fluid className="px-0 py-md-1">
-      <Card className="shadow-sm border rounded-1 w-100 mx-auto">
-        <Card.Body className="py-4 px-2 px-md-4">
-          {/* Header */}
-          <Row className="mb-5 align-items-center">
-            <Col>
-              <h1 className="text-secondary" style={{ fontSize: '2.5rem', color: '#4A5568' }}>Document Upload</h1>
-            </Col>
-            <Col xs="auto">
-              <Button 
-                variant="primary" 
-                onClick={handleApplicantModalShow} 
-                className="rounded-md py-2 px-4 d-flex align-items-center"
-                style={{ backgroundColor: '#3B82F6', borderColor: '#3B82F6' }}
-              >
-                <FaPlus className="me-2" /> Add Applicant
-              </Button>
-            </Col>
-            <Col xs="auto">
-          <Button
-            variant="primary"
-            onClick={handleLogout}
-            className="rounded-md py-2 px-4 d-flex align-items-center"
-            style={{ backgroundColor: '#3B82F6', borderColor: '#3B82F6' }}
-          >
-            <FaSignOutAlt className="me-2" />Logout
-            </Button>
-        </Col>
-          </Row>
-
+// Render functions based on current step
   
-          
-          {/* Horizontal divider with more space */}
-          <hr className="my-4" style={{ borderColor: 'grey' }} />
-          
-          {/* Add empty space to match the layout in the image */}
-          <div style={{ minHeight: '100px' }}></div>
-          
-          {/* Navigation Buttons */}
-          <Row className="mt-5 d-flex justify-content-between">
-            <Col xs="auto">
-              <Button 
-                variant="primary" 
-                className="px-4 py-2" 
-                onClick={() => {}}
-                style={{ backgroundColor: '#3B82F6', borderColor: '#3B82F6' }}
-              >
-                <FaArrowLeft className="me-2" /> Back
-              </Button>
-            </Col>
-            <Col xs="auto">
-              <Button 
-                variant="primary" 
-                className="px-4 py-2" 
-                onClick={() => {}}
-                style={{ backgroundColor: '#3B82F6', borderColor: '#3B82F6' }}
-              >
-                <FaArrowRight className="me-2" />  Next 
-              </Button>
-            </Col>
-          </Row>
-        </Card.Body>
-      </Card>
-    </Container>
-  );
-
-  const renderApplicantView = () => (
-    <Container fluid className="px-0 py-md-1">
+const renderInitialView = () => (
+  <Container fluid className="px-0 py-md-1">
     <Card className="shadow-sm border rounded-1 w-100 mx-auto">
       <Card.Body className="py-4 px-2 px-md-4">
-      {/* Header */}
-      <Row className="mb-5 align-items-center">
-        <Col>
-          <h1 className="text-secondary" style={{ fontSize: '2.5rem', color: '#4A5568' }}>Document Upload</h1>
-        </Col>
-        <Col xs="auto">
-          <Button 
-            variant="primary" 
-            onClick={handleApplicantModalShow} 
-            className="rounded-md py-2 px-4 d-flex align-items-center"
-            style={{ backgroundColor: '#3B82F6', borderColor: '#3B82F6' }}
-          >
-            <FaPlus className="me-2" /> Add Applicant
-          </Button>
-        </Col>
-        <Col xs="auto">
-          <Button
-            variant="primary"
-            onClick={handleLogout}
-            className="rounded-md py-2 px-4 d-flex align-items-center"
-            style={{ backgroundColor: '#3B82F6', borderColor: '#3B82F6' }}
-          >
-            <FaSignOutAlt className="me-2" />Logout
+        {/* Header */}
+        <Row className="mb-5 align-items-center">
+          <Col>
+            <h1 className="text-secondary" style={{ fontSize: '2.5rem', color: '#4A5568' }}>Document Upload</h1>
+          </Col>
+          <Col xs="auto">
+            <Button 
+              variant="primary" 
+              onClick={handleApplicantModalShow} 
+              className="rounded-md py-2 px-4 d-flex align-items-center"
+              style={{ backgroundColor: '#3B82F6', borderColor: '#3B82F6' }}
+            >
+              <FaPlus className="me-2" /> Add Applicant
             </Button>
-        </Col>
-      </Row>
-
-      {/* Horizontal Applicants Section */}
-      <Row className="mb-4">
-        <Col>
-          <div className="mb-3">
-            <div className="d-flex">
-              {loading ? (
-                <div className="d-flex justify-content-center p-3">
-                  <div className="spinner-border spinner-border-sm text-primary" role="status">
-                    <span className="visually-hidden">Loading...</span>
-                  </div>
-                </div>
-              ) : applicants.length === 0 ? (
-                <div className="p-3 text-center text-secondary">
-                  No applicants found
-                </div>
-              ) : (
-                applicants.map((applicant, index) => (
-                  <div 
-                    key={applicant.id || index}
-                    style={{ 
-                      cursor: 'pointer',
-                      marginRight: '20px',
-                      display: 'inline-block',
-                      position: 'relative'
-                    }}
-                    onClick={() => setSelectedApplicantIndex(index)}
-                  >
-                    <div className="d-flex align-items-center">
-                      <span 
-                        className={`${selectedApplicantIndex === index ? 'text-primary' : 'text-secondary'} me-2`}
-                        style={{ fontWeight: selectedApplicantIndex === index ? '600' : '400' }}
-                      >
-                        {applicant.name || `Applicant ${index + 1}`}
-                      </span>
-                      <Button 
-                        variant="primary" 
-                        className="d-flex align-items-center justify-content-center p-2"
-                        style={{ 
-                          backgroundColor: '#3B82F6', 
-                          width: '40px', 
-                          height: '40px',
-                          borderRadius: '4px'
-                        }}
-                        onClick={(e) => handleDeleteApplicant(index, e)}
-                      >
-                        <FaTrash size={14} />
-                      </Button>
-                    </div>
-                    
-                    {/* Individual progress indicator for each applicant */}
-                    {selectedApplicantIndex === index ? (
-                      <div 
-                        style={{ 
-                          position: 'absolute',
-                          bottom: '-15px',
-                          left: '-10px',
-                          width: 'calc(100% + 20px)',
-                          height: '3px',
-                          backgroundColor: '#3B82F6'
-                        }}
-                      ></div>
-                    ) : (
-                      <div 
-                        style={{ 
-                          position: 'absolute',
-                          bottom: '-15px',
-                          left: 0,
-                          width: '100%',
-                          height: '1px',
-                          backgroundColor: '#E2E8F0'
-                        }}
-                      ></div>
-                    )}
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-          
-          {/* Border below all applicants */}
-          <div className="border-bottom" style={{ borderColor: '#E2E8F0', marginTop: '15px' }}></div>
-        </Col>
-      </Row>
-
-      {/* No documents message */}
-      <Row className="mb-4">
-        <Col>
-          <div className="text-secondary mb-3">No documents available</div>
-        </Col>
-      </Row>
-
-      {/* Add document button */}
-      <Row className="mb-4">
-        <Col xs="auto">
-          <Button 
-            variant="primary"
-            className="d-flex align-items-center justify-content-center"
-            style={{ 
-              backgroundColor: '#3B82F6',
-              color: 'white',
-              width: '100px',
-              height: '50px',
-              borderRadius: '8px'
-            }}
-            onClick={handleDocumentModalShow}
-          >
-            <FaPlus className="me-2" /> Add
+          </Col>
+          <Col xs="auto">
+        <Button
+          variant="primary"
+          onClick={handleLogout}
+          className="rounded-md py-2 px-4 d-flex align-items-center"
+          style={{ backgroundColor: '#3B82F6', borderColor: '#3B82F6' }}
+        >
+          <FaSignOutAlt className="me-2" />Logout
           </Button>
-        </Col>
-      </Row>
+      </Col>
+        </Row>
 
-      {/* Navigation Buttons */}
-      <Row className="mt-4 d-flex justify-content-between">
-        <Col xs="auto">
-          <Button variant="primary" className="px-4 py-2" onClick={() => navigateApplicants(-1)}>
-            <FaArrowLeft className="me-2" /> Back
-          </Button>
-        </Col>
-        <Col xs="auto">
-          <Button variant="primary" className="px-4 py-2" onClick={() => navigateApplicants(1)}>
-          <FaArrowRight className="me-2" />  Next 
-          </Button>
-        </Col>
-      </Row>
+
+        
+        {/* Horizontal divider with more space */}
+        <hr className="my-4" style={{ borderColor: 'grey' }} />
+        
+        {/* Add empty space to match the layout in the image */}
+        <div style={{ minHeight: '100px' }}></div>
+        
+        {/* Navigation Buttons */}
+        <Row className="mt-5 d-flex justify-content-between">
+          <Col xs="auto">
+            <Button 
+              variant="primary" 
+              className="px-4 py-2" 
+              onClick={() => navigateApplicantDocuments(-1)}
+              style={{ backgroundColor: '#3B82F6', borderColor: '#3B82F6' }}
+            >
+              <FaArrowLeft className="me-2" /> Back
+            </Button>
+          </Col>
+          <Col xs="auto">
+            <Button 
+              variant="primary" 
+              className="px-4 py-2" 
+              onClick={() => navigateApplicantDocuments(1)}
+              style={{ backgroundColor: '#3B82F6', borderColor: '#3B82F6' }}
+            >
+              <FaArrowRight className="me-2" />  Next 
+            </Button>
+          </Col>
+        </Row>
       </Card.Body>
-      </Card>
-    </Container>
-  );
+    </Card>
+  </Container>
+);
 
-  const renderDocumentTypeView = () => (
-    <Container fluid className="px-0 py-md-1">
-      <Card className="shadow-sm border rounded-1 w-100 mx-auto">
-        <Card.Body className="py-4 px-2 px-md-4">
-      {/* Hidden file input */}
-      <input
-        type="file"
-        ref={fileInputRef}
-        onChange={handleFileSelect}
-        className="d-none"
-        multiple
-      />
-      
-      {/* Header */}
-      <Row className="mb-5 align-items-center">
-        <Col>
-          <h1 className="text-secondary" style={{ fontSize: '2.5rem', color: '#4A5568' }}>Document Upload</h1>
-        </Col>
-        <Col xs="auto">
-          <Button 
-            variant="primary" 
-            onClick={handleApplicantModalShow} 
-            className="rounded-md py-2 px-4 d-flex align-items-center"
-            style={{ backgroundColor: '#3B82F6', borderColor: '#3B82F6' }}
-          >
-            <FaPlus className="me-2" /> Add Applicant
+const renderApplicantView = () => (
+  <Container fluid className="px-0 py-md-1">
+  <Card className="shadow-sm border rounded-1 w-100 mx-auto">
+    <Card.Body className="py-4 px-2 px-md-4">
+    {/* Header */}
+    <Row className="mb-5 align-items-center">
+      <Col>
+        <h1 className="text-secondary" style={{ fontSize: '2.5rem', color: '#4A5568' }}>Document Upload</h1>
+      </Col>
+      <Col xs="auto">
+        <Button 
+          variant="primary" 
+          onClick={handleApplicantModalShow} 
+          className="rounded-md py-2 px-4 d-flex align-items-center"
+          style={{ backgroundColor: '#3B82F6', borderColor: '#3B82F6' }}
+        >
+          <FaPlus className="me-2" /> Add Applicant
+        </Button>
+      </Col>
+      <Col xs="auto">
+        <Button
+          variant="primary"
+          onClick={handleLogout}
+          className="rounded-md py-2 px-4 d-flex align-items-center"
+          style={{ backgroundColor: '#3B82F6', borderColor: '#3B82F6' }}
+        >
+          <FaSignOutAlt className="me-2" />Logout
           </Button>
-        </Col>
-        <Col xs="auto">
-          <Button
-            variant="primary"
-            onClick={handleLogout}
-            className="rounded-md py-2 px-4 d-flex align-items-center"
-            style={{ backgroundColor: '#3B82F6', borderColor: '#3B82F6' }}
-          >
-            <FaSignOutAlt className="me-2" />Logout
-            </Button>
-        </Col>
-      </Row>
+      </Col>
+    </Row>
 
-      {/* Horizontal Applicants Section */}
-      <Row className="mb-4">
-        <Col>
-          <div className="mb-3">
-            <div className="d-flex">
-              {loading ? (
-                <div className="d-flex justify-content-center p-3">
-                  <div className="spinner-border spinner-border-sm text-primary" role="status">
-                    <span className="visually-hidden">Loading...</span>
-                  </div>
-                </div>
-              ) : (
-                applicants.map((applicant, index) => (
-                  <div 
-                    key={applicant.id || index}
-                    style={{ 
-                      cursor: 'pointer',
-                      marginRight: '20px',
-                      display: 'inline-block',
-                      position: 'relative'
-                    }}
-                    onClick={() => setSelectedApplicantIndex(index)}
-                  >
-                    <div className="d-flex align-items-center">
-                      <span 
-                        className={`${selectedApplicantIndex === index ? 'text-primary' : 'text-secondary'} me-2`}
-                        style={{ fontWeight: selectedApplicantIndex === index ? '600' : '400' }}
-                      >
-                        {applicant.name || `Applicant ${index + 1}`}
-                      </span>
-                      <Button 
-                        variant="primary" 
-                        className="d-flex align-items-center justify-content-center p-2"
-                        style={{ 
-                          backgroundColor: '#3B82F6', 
-                          width: '40px', 
-                          height: '40px',
-                          borderRadius: '4px'
-                        }}
-                        onClick={(e) => handleDeleteApplicant(index, e)}
-                      >
-                        <FaTrash size={14} />
-                      </Button>
-                    </div>
-                    
-                    {/* Individual progress indicator for each applicant */}
-                    {selectedApplicantIndex === index ? (
-                      <div 
-                        style={{ 
-                          position: 'absolute',
-                          bottom: '-15px',
-                          left: '-10px',
-                          width: 'calc(100% + 20px)',
-                          height: '3px',
-                          backgroundColor: '#3B82F6'
-                        }}
-                      ></div>
-                    ) : (
-                      <div 
-                        style={{ 
-                          position: 'absolute',
-                          bottom: '-15px',
-                          left: 0,
-                          width: '100%',
-                          height: '1px',
-                          backgroundColor: '#E2E8F0'
-                        }}
-                      ></div>
-                    )}
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-          
-          {/* Border below all applicants */}
-          <div className="border-bottom" style={{ borderColor: '#E2E8F0', marginTop: '15px' }}></div>
-        </Col>
-      </Row>
-
-      {/* Main Content with Document Types and Upload Area */}
-      <Row>
-        {/* Left sidebar - Document Types */}
-        <Col md="auto" className="me-4">
-          <div className="mb-4" style={{ width: '200px' }}>
-            {/* Display document types */}
-            {documentTypes.map((docType, index) => (
-              <div 
-                key={docType.id || index}
-                className="mb-3"
-                style={{
-                  cursor: selectedDocumentTypeIndex !== index ? 'pointer' : 'default'
-                }}
-                onClick={() => setSelectedDocumentTypeIndex(index)}
-              >
-                <div 
-                  style={{
-                    backgroundColor: selectedDocumentTypeIndex === index ? '#3B82F6' : '#FFFFFF',
-                    color: selectedDocumentTypeIndex === index ? 'white' : 'grey',
-                    borderRadius: '8px',
-                    padding: '20px',
-                    fontWeight: '500',
-                    textAlign: 'center',
-                    width: '120px',
-                    height: '80px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  {docType.name}
+    {/* Horizontal Applicants Section */}
+    <Row className="mb-4">
+      <Col>
+        <div className="mb-3">
+          <div className="d-flex">
+            {loading ? (
+              <div className="d-flex justify-content-center p-3">
+                <div className="spinner-border spinner-border-sm text-primary" role="status">
+                  <span className="visually-hidden">Loading...</span>
                 </div>
               </div>
-            ))}
-            
-            {/* Add button */}
-            <div className="d-flex">
-              <Button 
-                variant="primary"
-                className="d-flex align-items-center justify-content-center"
-                style={{ 
-                  backgroundColor: '#3B82F6',
-                  color: 'white',
-                  width: '100px',
-                  height: '50px',
-                  borderRadius: '8px',
-                  marginRight: '15px'
-                }}
-                onClick={handleDocumentModalShow}
-              >
-                <FaPlus className="me-2" /> Add
-              </Button>
-            </div>
-          </div>
-        </Col>
-        
-        {/* Right Content - File Upload Area */}
-        <Col>
-          {/* Right content */}
-          <div className="border rounded-md" style={{ borderColor: '#E2E8F0', backgroundColor: '#F8FAFC' }}>
-            {/* Action buttons */}
-            <div className="d-flex gap-2 p-3" style={{ borderColor: '#E2E8F0' }}>
-              <Button 
-                variant="primary"
-                className="py-2 px-3 d-flex align-items-center justify-content-center"
-                style={{ backgroundColor: '#3B82F6', width: '120px' }}
-                onClick={handleChoose}
-              >
-                <FaPlus className="me-2" /> Choose
-              </Button>
-              <Button 
-                variant="primary"
-                className="py-2 px-3 d-flex align-items-center justify-content-center"
-                style={{ backgroundColor:  selectedFiles.length > 0 ? '#3B82F6' : '#93C5FD',  width: '120px' }}
-                onClick={handleUpload}
-              >
-                <FaUpload className="me-2" /> Upload
-              </Button>
-              <Button 
-                variant="primary"
-                className="py-2 px-3 d-flex align-items-center justify-content-center"
-                style={{ backgroundColor:  selectedFiles.length > 0 ? '#3B82F6' : '#93C5FD',  width: '120px' }}
-                onClick={handleCancel}
-              >
-                <FaTimes className="me-2" /> Cancel
-              </Button>
-            </div>
-            
-            {/* Progress line for all uploads - placed below buttons */}
-            <div style={{ position: 'relative', height: '1px', backgroundColor: '#E2E8F0' }}>
-              {selectedFiles.length > 0 && (
-                <div 
-                  style={{ 
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    height: '1px',
-                    width: `${calculateOverallProgress()}%`,
-                    backgroundColor: '#3B82F6'
-                  }}
-                ></div>
-              )}
-            </div>
-            
-            {/* Conditional rendering based on whether files are selected */}
-            {selectedFiles.length === 0 ? (
-              // Drag and drop area (only shown when no files are selected)
-              <div 
-                className="p-5 d-flex justify-content-center align-items-center"
-                onDragEnter={handleDragEnter}
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
-                style={{ 
-                  minHeight: '200px', 
-                  backgroundColor: isDragging ? '#EFF6FF' : 'transparent'
-                }}
-              >
-                <p className="mb-0 text-secondary">Drag and Drop files here.</p>
+            ) : applicants.length === 0 ? (
+              <div className="p-3 text-center text-secondary">
+                No applicants found
               </div>
             ) : (
-              // File list (shown when files are selected)
-              <div>
-                {selectedFiles.map((file, index) => (
-                  <div key={index}>
-                    <div className="d-flex align-items-center justify-content-between py-3 px-4" style={{backgroundColor: "white"}}>
-                      <div className="d-flex align-items-center">
-                        {/* File thumbnail */}
-                        <div 
-                          className="me-3 d-flex align-items-center justify-content-center"
-                          style={{ 
-                            width: '48px', 
-                            height: '48px', 
-                            backgroundColor: '#FFFFFF', 
-                            borderRadius: '4px',
-                            overflow: 'hidden' 
-                          }}
-                        >
-                          {file.type && file.type.startsWith('image/') ? (
-                            <img 
-                              src={URL.createObjectURL(file)} 
-                              alt="thumbnail" 
-                              style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'cover' }}
-                            />
-                          ) : (
-                            <div style={{ width: '24px', height: '24px', backgroundColor: '#CBD5E0' }}></div>
-                          )}
-                        </div>
-                        
-                        {/* File details */}
-                        <div className="flex-grow-1">
-                        <div 
-  className="text-dark text-truncate" 
-  style={{ maxWidth: '500px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
->
-  {file.name}
-</div>
-                          <div className="d-flex align-items-center gap-2">
-                            <span className="text-secondary">{(file.size / 1024).toFixed(1)} KB</span>
-                            
-                            {/* Status badge */}
-                            <span 
-                              className="px-2 py-1 rounded-pill text-white"
-                              style={{ 
-                                backgroundColor: 
-                                  fileStatuses[file.name] === 'Completed' ? '#48BB78' : 
-                                  fileStatuses[file.name] === 'Failed' ? '#F56565' : 
-                                  '#F6AD55',
-                                fontSize: '0.75rem',
-                                fontWeight: '500'
-                              }}
-                            >
-                              {fileStatuses[file.name] || 'Pending'}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      {/* Remove button */}
-                      <button 
-                        onClick={() => handleRemoveFile(index)}
-                        className="btn btn-sm text-danger ms-5"
-                        style={{ background: 'none', border: 'none' }}
-                      >
-                        <FaTimes style={{ color: '#F56565' }} />
-                      </button>
-                    </div>
-                    
-                    {/* Individual file divider without progress bar */}
-                    <div className="border-bottom" style={{ borderColor: '#E2E8F0' }}></div>
+              applicants.map((applicant, index) => (
+                <div 
+                  key={applicant.id || index}
+                  style={{ 
+                    cursor: 'pointer',
+                    marginRight: '20px',
+                    display: 'inline-block',
+                    position: 'relative'
+                  }}
+                  onClick={() => setSelectedApplicantIndex(index)}
+                >
+                  <div className="d-flex align-items-center">
+                    <span 
+                      className={`${selectedApplicantIndex === index ? 'text-primary' : 'text-secondary'} me-2`}
+                      style={{ fontWeight: selectedApplicantIndex === index ? '600' : '400' }}
+                    >
+                      {applicant.name || `Applicant ${index + 1}`}
+                    </span>
+                    <Button 
+                      variant="primary" 
+                      className="d-flex align-items-center justify-content-center p-2"
+                      style={{ 
+                        backgroundColor: '#3B82F6', 
+                        width: '40px', 
+                        height: '40px',
+                        borderRadius: '4px'
+                      }}
+                      onClick={(e) => handleDeleteApplicant(index, e)}
+                    >
+                      <FaTrash size={14} />
+                    </Button>
                   </div>
-                ))}
-              </div>
+                  
+                  {/* Individual progress indicator for each applicant */}
+                  {selectedApplicantIndex === index ? (
+                    <div 
+                      style={{ 
+                        position: 'absolute',
+                        bottom: '-15px',
+                        left: '-10px',
+                        width: 'calc(100% + 20px)',
+                        height: '3px',
+                        backgroundColor: '#3B82F6'
+                      }}
+                    ></div>
+                  ) : (
+                    <div 
+                      style={{ 
+                        position: 'absolute',
+                        bottom: '-15px',
+                        left: 0,
+                        width: '100%',
+                        height: '1px',
+                        backgroundColor: '#E2E8F0'
+                      }}
+                    ></div>
+                  )}
+                </div>
+              ))
             )}
           </div>
-        </Col>
-      </Row>
+        </div>
+        
+        {/* Border below all applicants */}
+        <div className="border-bottom" style={{ borderColor: '#E2E8F0', marginTop: '15px' }}></div>
+      </Col>
+    </Row>
 
-      {/* Navigation Buttons */}
-      <Row className="mt-4 d-flex justify-content-between">
-        <Col xs="auto">
-          <Button variant="primary" className="px-4 py-2" onClick={() => navigateApplicants(-1)}>
-            <FaArrowLeft className="me-2" /> Back
+    {/* No documents message */}
+    <Row className="mb-4">
+      <Col>
+        <div className="text-secondary mb-3">No documents available</div>
+      </Col>
+    </Row>
+
+    {/* Add document button */}
+    <Row className="mb-4">
+      <Col xs="auto">
+        <Button 
+          variant="primary"
+          className="d-flex align-items-center justify-content-center"
+          style={{ 
+            backgroundColor: '#3B82F6',
+            color: 'white',
+            width: '100px',
+            height: '50px',
+            borderRadius: '8px'
+          }}
+          onClick={handleDocumentModalShow}
+        >
+          <FaPlus className="me-2" /> Add
+        </Button>
+      </Col>
+    </Row>
+
+    {/* Navigation Buttons - UPDATED to use new navigation */}
+    <Row className="mt-4 d-flex justify-content-between">
+      <Col xs="auto">
+        <Button variant="primary" className="px-4 py-2" onClick={() => navigateApplicantDocuments(-1)}>
+          <FaArrowLeft className="me-2" /> Back
+        </Button>
+      </Col>
+      <Col xs="auto">
+        <Button variant="primary" className="px-4 py-2" onClick={() => navigateApplicantDocuments(1)}>
+        <FaArrowRight className="me-2" />  Next 
+        </Button>
+      </Col>
+    </Row>
+    </Card.Body>
+    </Card>
+  </Container>
+);
+
+const renderDocumentTypeView = () => (
+  <Container fluid className="px-0 py-md-1">
+    <Card className="shadow-sm border rounded-1 w-100 mx-auto">
+      <Card.Body className="py-4 px-2 px-md-4">
+    {/* Hidden file input */}
+    <input
+      type="file"
+      ref={fileInputRef}
+      onChange={handleFileSelect}
+      className="d-none"
+      multiple
+    />
+    
+    {/* Header */}
+    <Row className="mb-5 align-items-center">
+      <Col>
+        <h1 className="text-secondary" style={{ fontSize: '2.5rem', color: '#4A5568' }}>Document Upload</h1>
+      </Col>
+      <Col xs="auto">
+        <Button 
+          variant="primary" 
+          onClick={handleApplicantModalShow} 
+          className="rounded-md py-2 px-4 d-flex align-items-center"
+          style={{ backgroundColor: '#3B82F6', borderColor: '#3B82F6' }}
+        >
+          <FaPlus className="me-2" /> Add Applicant
+        </Button>
+      </Col>
+      <Col xs="auto">
+        <Button
+          variant="primary"
+          onClick={handleLogout}
+          className="rounded-md py-2 px-4 d-flex align-items-center"
+          style={{ backgroundColor: '#3B82F6', borderColor: '#3B82F6' }}
+        >
+          <FaSignOutAlt className="me-2" />Logout
           </Button>
-        </Col>
-        <Col xs="auto">
-          <Button variant="primary" className="px-4 py-2" onClick={() => navigateApplicants(1)}>
-          <FaArrowRight className="me-2" />  Next 
-          </Button>
-        </Col>
-      </Row>
-      </Card.Body>
-      </Card>
-    </Container>
-  );
+      </Col>
+    </Row>
 
-  // Determine which view to render based on current step
-  const renderCurrentView = () => {
-    switch (currentStep) {
-      case 1:
-        return renderInitialView();
-      case 2:
-        return renderApplicantView();
-      case 3:
-        return renderDocumentTypeView();
-      default:
-        return renderInitialView();
-    }
-  };
+    {/* Horizontal Applicants Section */}
+    <Row className="mb-4">
+      <Col>
+        <div className="mb-3">
+          <div className="d-flex">
+            {loading ? (
+              <div className="d-flex justify-content-center p-3">
+                <div className="spinner-border spinner-border-sm text-primary" role="status">
+                  <span className="visually-hidden">Loading...</span>
+                </div>
+              </div>
+            ) : (
+              applicants.map((applicant, index) => (
+                <div 
+                  key={applicant.id || index}
+                  style={{ 
+                    cursor: 'pointer',
+                    marginRight: '20px',
+                    display: 'inline-block',
+                    position: 'relative'
+                  }}
+                  onClick={() => setSelectedApplicantIndex(index)}
+                >
+                  <div className="d-flex align-items-center">
+                    <span 
+                      className={`${selectedApplicantIndex === index ? 'text-primary' : 'text-secondary'} me-2`}
+                      style={{ fontWeight: selectedApplicantIndex === index ? '600' : '400' }}
+                    >
+                      {applicant.name || `Applicant ${index + 1}`}
+                    </span>
+                    <Button 
+                      variant="primary" 
+                      className="d-flex align-items-center justify-content-center p-2"
+                      style={{ 
+                        backgroundColor: '#3B82F6', 
+                        width: '40px', 
+                        height: '40px',
+                        borderRadius: '4px'
+                      }}
+                      onClick={(e) => handleDeleteApplicant(index, e)}
+                    >
+                      <FaTrash size={14} />
+                    </Button>
+                  </div>
+                  
+                  {/* Individual progress indicator for each applicant */}
+                  {selectedApplicantIndex === index ? (
+                    <div 
+                      style={{ 
+                        position: 'absolute',
+                        bottom: '-15px',
+                        left: '-10px',
+                        width: 'calc(100% + 20px)',
+                        height: '3px',
+                        backgroundColor: '#3B82F6'
+                      }}
+                    ></div>
+                  ) : (
+                    <div 
+                      style={{ 
+                        position: 'absolute',
+                        bottom: '-15px',
+                        left: 0,
+                        width: '100%',
+                        height: '1px',
+                        backgroundColor: '#E2E8F0'
+                      }}
+                    ></div>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+        
+        {/* Border below all applicants */}
+        <div className="border-bottom" style={{ borderColor: '#E2E8F0', marginTop: '15px' }}></div>
+      </Col>
+    </Row>
 
-  return (
-    <>
-      {renderCurrentView()}
+    {/* Main Content with Document Types and Upload Area */}
+    <Row>
+      {/* Left sidebar - Document Types */}
+      <Col md="auto" className="me-4">
+        <div className="mb-4" style={{ width: '200px' }}>
+          {/* Display document types - UPDATED to show only for selected applicant */}
+          {getDocumentTypesForSelectedApplicant().map((docType, index) => (
+            <div 
+              key={docType.id || index}
+              className="mb-3"
+              style={{
+                cursor: 'pointer'
+              }}
+              onClick={() => {
+                // Find the index in the overall documentTypes array
+                const globalIndex = documentTypes.findIndex(dt => dt.id === docType.id);
+                if (globalIndex !== -1) {
+                  setSelectedDocumentTypeIndex(globalIndex);
+                  
+                  // Also update the navigation index to match this selection
+                  const flatList = getFlattenedList();
+                  const pairIndex = flatList.findIndex(item => 
+                    item.applicant.id === applicants[selectedApplicantIndex].id && 
+                    item.docType?.id === docType.id
+                  );
+                  
+                  if (pairIndex !== -1) {
+                    setSelectedIndex(pairIndex);
+                  }
+                }
+              }}
+            >
+              <div 
+                style={{
+                  backgroundColor: documentTypes[selectedDocumentTypeIndex]?.id === docType.id ? '#3B82F6' : '#FFFFFF',
+                  color: documentTypes[selectedDocumentTypeIndex]?.id === docType.id ? 'white' : 'grey',
+                  borderRadius: '8px',
+                  padding: '20px',
+                  fontWeight: '500',
+                  textAlign: 'center',
+                  width: '120px',
+                  height: '80px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                {docType.name}
+              </div>
+            </div>
+          ))}
+          
+          {/* Add button */}
+          <div className="d-flex">
+            <Button 
+              variant="primary"
+              className="d-flex align-items-center justify-content-center"
+              style={{ 
+                backgroundColor: '#3B82F6',
+                color: 'white',
+                width: '100px',
+                height: '50px',
+                borderRadius: '8px',
+                marginRight: '15px'
+              }}
+              onClick={handleDocumentModalShow}
+            >
+              <FaPlus className="me-2" /> Add
+            </Button>
+          </div>
+        </div>
+      </Col>
       
-      {/* Add Applicant Modal */}
-      <AddApplicantModal 
-        show={showApplicantModal}
-        handleClose={handleApplicantModalClose}
-        handleSave={handleSaveApplicant}
-      />
+      {/* Right Content - File Upload Area */}
+      <Col>
+        {/* Right content */}
+        <div className="border rounded-md" style={{ borderColor: '#E2E8F0', backgroundColor: '#F8FAFC' }}>
+          {/* Simple info display right above the action buttons */}
+          <div className="text-center py-2" style={{ borderBottom: '1px solid #E2E8F0' }}>
+            <span className="fw-bold">{applicants[selectedApplicantIndex]?.name}</span>, 
+            <span className="ms-1">{documentTypes[selectedDocumentTypeIndex]?.name}</span>
+          </div>
+          
+          {/* Action buttons */}
+          <div className="d-flex gap-2 p-3" style={{ borderColor: '#E2E8F0' }}>
+            <Button 
+              variant="primary"
+              className="py-2 px-3 d-flex align-items-center justify-content-center"
+              style={{ backgroundColor: '#3B82F6', width: '120px' }}
+              onClick={handleChoose}
+            >
+              <FaPlus className="me-2" /> Choose
+            </Button>
+            <Button 
+              variant="primary"
+              className="py-2 px-3 d-flex align-items-center justify-content-center"
+              style={{ backgroundColor:  selectedFiles.length > 0 ? '#3B82F6' : '#93C5FD',  width: '120px' }}
+              onClick={handleUpload}
+            >
+              <FaUpload className="me-2" /> Upload
+            </Button>
+            <Button 
+              variant="primary"
+              className="py-2 px-3 d-flex align-items-center justify-content-center"
+              style={{ backgroundColor:  selectedFiles.length > 0 ? '#3B82F6' : '#93C5FD',  width: '120px' }}
+              onClick={handleCancel}
+            >
+              <FaTimes className="me-2" /> Cancel
+            </Button>
+          </div>
+          
+          {/* Progress line for all uploads - placed below buttons */}
+          <div style={{ position: 'relative', height: '1px', backgroundColor: '#E2E8F0' }}>
+            {selectedFiles.length > 0 && (
+              <div 
+                style={{ 
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  height: '1px',
+                  width: `${calculateOverallProgress()}%`,
+                  backgroundColor: '#3B82F6'
+                }}
+              ></div>
+            )}
+          </div>
+          
+          {/* Conditional rendering based on whether files are selected */}
+          {selectedFiles.length === 0 ? (
+            // Drag and drop area (only shown when no files are selected)
+            <div 
+              className="p-5 d-flex justify-content-center align-items-center"
+              onDragEnter={handleDragEnter}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              style={{ 
+                minHeight: '200px', 
+                backgroundColor: isDragging ? '#EFF6FF' : 'transparent'
+              }}
+            >
+              <p className="mb-0 text-secondary">Drag and Drop files here.</p>
+            </div>
+          ) : (
+            // File list (shown when files are selected)
+            <div>
+              {selectedFiles.map((file, index) => (
+                <div key={index}>
+                  <div className="d-flex align-items-center justify-content-between py-3 px-4" style={{backgroundColor: "white"}}>
+                    <div className="d-flex align-items-center">
+                      {/* File thumbnail */}
+                      <div 
+                        className="me-3 d-flex align-items-center justify-content-center"
+                        style={{ 
+                          width: '48px', 
+                          height: '48px', 
+                          backgroundColor: '#FFFFFF', 
+                          borderRadius: '4px',
+                          overflow: 'hidden' 
+                        }}
+                      >
+                        {file.type && file.type.startsWith('image/') ? (
+                          <img 
+                            src={URL.createObjectURL(file)} 
+                            alt="thumbnail" 
+                            style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'cover' }}
+                          />
+                        ) : (
+                          <div style={{ width: '24px', height: '24px', backgroundColor: '#CBD5E0' }}></div>
+                        )}
+                      </div>
+                      
+                      {/* File details */}
+                      <div className="flex-grow-1">
+                      <div 
+                        className="text-dark text-truncate" 
+                        style={{ maxWidth: '500px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                      >
+                        {file.name}
+                      </div>
+                        <div className="d-flex align-items-center gap-2">
+                          <span className="text-secondary">{(file.size / 1024).toFixed(1)} KB</span>
+                          
+                          {/* Status badge */}
+                          <span 
+                            className="px-2 py-1 rounded-pill text-white"
+                            style={{ 
+                              backgroundColor: 
+                                fileStatuses[file.name] === 'Completed' ? '#48BB78' : 
+                                fileStatuses[file.name] === 'Failed' ? '#F56565' : 
+                                '#F6AD55',
+                              fontSize: '0.75rem',
+                              fontWeight: '500'
+                            }}
+                          >
+                            {fileStatuses[file.name] || 'Pending'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Remove button */}
+                    <button 
+                      onClick={() => handleRemoveFile(index)}
+                      className="btn btn-sm text-danger ms-5"
+                      style={{ background: 'none', border: 'none' }}
+                    >
+                      <FaTimes style={{ color: '#F56565' }} />
+                    </button>
+                  </div>
+                  
+                  {/* Individual file divider without progress bar */}
+                  <div className="border-bottom" style={{ borderColor: '#E2E8F0' }}></div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </Col>
+    </Row>
 
-      {/* Add Document Modal */}
-      <AddDocumentModal
-        show={showDocumentModal}
-        handleClose={handleDocumentModalClose}
-        handleSave={handleAddDocument}
-      />
-    </>
-  );
+    {/* Navigation Buttons - UPDATED to use new navigation function */}
+    <Row className="mt-4 d-flex justify-content-between">
+      <Col xs="auto">
+        <Button variant="primary" className="px-4 py-2" onClick={() => navigateApplicantDocuments(-1)}>
+          <FaArrowLeft className="me-2" /> Back
+        </Button>
+      </Col>
+      <Col xs="auto">
+        <Button variant="primary" className="px-4 py-2" onClick={() => navigateApplicantDocuments(1)}>
+        <FaArrowRight className="me-2" />  Next 
+        </Button>
+      </Col>
+    </Row>
+    </Card.Body>
+    </Card>
+  </Container>
+);
+// Determine which view to render based on current step
+const renderCurrentView = () => {
+  switch (currentStep) {
+    case 1:
+      return renderInitialView();
+    case 2:
+      return renderApplicantView();
+    case 3:
+      return renderDocumentTypeView();
+    default:
+      return renderInitialView();
+  }
 };
 
-export default DocumentUpload;
+return (
+  <>
+    {renderCurrentView()}
+    
+    {/* Add Applicant Modal */}
+    <AddApplicantModal 
+      show={showApplicantModal}
+      handleClose={handleApplicantModalClose}
+      handleSave={handleSaveApplicant}
+    />
+
+    {/* Add Document Modal */}
+    <AddDocumentModal
+      show={showDocumentModal}
+      handleClose={handleDocumentModalClose}
+      handleSave={handleAddDocument}
+    />
+  </>
+);
+};
+
+export default DocumentUpload;  
