@@ -234,8 +234,6 @@ const OtpVerification = () => {
             </div>
 
             <div className="d-grid gap-2">
-             
-
               <Button
                 variant={canResend ? "outline-primary" : "outline-secondary"}
                 className="py-2"
