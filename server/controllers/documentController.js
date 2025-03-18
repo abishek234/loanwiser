@@ -107,7 +107,6 @@ exports.uploadDocument = async (req, res) => {
     
     // Create document
     const newDocument = await Document.create({
-      name: name.trim(),
       applicantId,
       filename: req.file.filename,
       originalName: req.file.originalname,
