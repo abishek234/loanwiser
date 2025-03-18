@@ -5,6 +5,7 @@ class Document {
   constructor(data) {
     this.id = data.id;
     this.applicantId = data.applicant_id || data.applicantId;
+    this.documentTypeId = data.document_type_id || data.documentTypeId;
     this.filename = data.filename;
     this.originalName = data.original_name || data.originalName;
     this.mimetype = data.mimetype;
@@ -19,6 +20,7 @@ class Document {
   static async create(documentData) {
     try {
       const {
+        documentTypeId,
         applicantId,
         filename,
         originalName,
@@ -31,13 +33,14 @@ class Document {
       
       const [result] = await pool.execute(
         `INSERT INTO documents 
-          (applicant_id, filename, original_name, mimetype, size, file_path, status, created_by) 
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [applicantId, filename, originalName, mimetype, size, filePath, status, userId]
+          (document_type_id,applicant_id, filename, original_name, mimetype, size, file_path, status, created_by) 
+         VALUES (?,?, ?, ?, ?, ?, ?, ?, ?)`,
+        [documentTypeId,applicantId, filename, originalName, mimetype, size, filePath, status, userId]
       );
       
       return {
         id: result.insertId,
+        documentTypeId,
         applicantId,
         filename,
         originalName,
@@ -92,8 +95,8 @@ class Document {
   static async update(id, name, status) {
     try {
       const [result] = await pool.execute(
-        'UPDATE documents SET name = ?, status = ? WHERE id = ?',
-        [name, status, id]
+        'UPDATE documents SET original_name = ?, status = ? WHERE id = ?',
+        [originalName, status, id]
       );
       
       return result.affectedRows > 0;
