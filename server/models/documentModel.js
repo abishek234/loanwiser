@@ -19,6 +19,8 @@ class Document {
   // Create a new document
   static async create(documentData) {
     try {
+        console.log("Received documentData:", documentData);
+
         const {
             documentTypeId,
             applicantId,
@@ -31,7 +33,7 @@ class Document {
             userId
         } = documentData;
 
-        // Check for undefined values
+        // Check for missing values
         if (
             documentTypeId === undefined ||
             applicantId === undefined ||
@@ -42,6 +44,16 @@ class Document {
             filePath === undefined ||
             userId === undefined
         ) {
+            console.error("Missing fields in documentData:", {
+                documentTypeId,
+                applicantId,
+                filename,
+                originalName,
+                mimetype,
+                size,
+                filePath,
+                userId
+            });
             throw new Error('Missing required fields in documentData');
         }
 
@@ -65,7 +77,6 @@ class Document {
             createdBy: userId
         };
     } catch (error) {
-        // If there's an error, attempt to delete the file that was uploaded
         if (documentData.filePath && fs.existsSync(documentData.filePath)) {
             fs.unlinkSync(documentData.filePath);
         }
