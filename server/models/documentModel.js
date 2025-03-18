@@ -4,7 +4,6 @@ const fs = require('fs');
 class Document {
   constructor(data) {
     this.id = data.id;
-    this.name = data.name;
     this.applicantId = data.applicant_id || data.applicantId;
     this.filename = data.filename;
     this.originalName = data.original_name || data.originalName;
@@ -20,7 +19,6 @@ class Document {
   static async create(documentData) {
     try {
       const {
-        name,
         applicantId,
         filename,
         originalName,
@@ -33,14 +31,13 @@ class Document {
       
       const [result] = await pool.execute(
         `INSERT INTO documents 
-          (name, applicant_id, filename, original_name, mimetype, size, file_path, status, created_by) 
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [name, applicantId, filename, originalName, mimetype, size, filePath, status, userId]
+          (applicant_id, filename, original_name, mimetype, size, file_path, status, created_by) 
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [applicantId, filename, originalName, mimetype, size, filePath, status, userId]
       );
       
       return {
         id: result.insertId,
-        name,
         applicantId,
         filename,
         originalName,
