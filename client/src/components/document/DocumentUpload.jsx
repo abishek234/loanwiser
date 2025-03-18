@@ -216,6 +216,7 @@ const DocumentUpload = () => {
         }
       }
     } catch (error) {
+      alert('applicant contain data cannot be deleted');
       console.error('Error deleting applicant:', error);
     } finally {
       setLoading(false);
