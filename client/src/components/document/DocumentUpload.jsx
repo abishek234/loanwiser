@@ -5,7 +5,7 @@ import { Container, Row, Col, Button,Card } from 'react-bootstrap';
 import { FaTrash, FaPlus, FaUpload, FaTimes, FaArrowLeft, FaArrowRight,FaSignOutAlt } from 'react-icons/fa';
 import AddApplicantModal from '../modal/AddApplicantModal';
 import AddDocumentModal from '../modal/AddDocument';
-import { getApplicants, createApplicant, deleteApplicant } from '../services/ApplicantServices';
+import { getApplicants, createApplicant, deleteApplicant } from '../services/applicantsServices';
 import { uploadDocument } from '../services/documentService';
 import { createDocumentType, getDocumentTypesByApplicant } from '../services/documenttypeServices';
 import AuthContext from '../../context/AuthContext';
