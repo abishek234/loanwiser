@@ -19,47 +19,62 @@ class Document {
   // Create a new document
   static async create(documentData) {
     try {
-      const {
-        documentTypeId,
-        applicantId,
-        filename,
-        originalName,
-        mimetype,
-        size,
-        filePath,
-        status = 'Completed',
-        userId
-      } = documentData;
-      
-      const [result] = await pool.execute(
-        `INSERT INTO documents 
-          (document_type_id,applicant_id, filename, original_name, mimetype, size, file_path, status, created_by) 
-         VALUES (?,?, ?, ?, ?, ?, ?, ?, ?)`,
-        [documentTypeId,applicantId, filename, originalName, mimetype, size, filePath, status, userId]
-      );
-      
-      return {
-        id: result.insertId,
-        documentTypeId,
-        applicantId,
-        filename,
-        originalName,
-        mimetype,
-        size,
-        filePath,
-        status,
-        createdBy: userId
-      };
+        const {
+            documentTypeId,
+            applicantId,
+            filename,
+            originalName,
+            mimetype,
+            size,
+            filePath,
+            status = 'Completed',
+            userId
+        } = documentData;
+
+        // Check for undefined values
+        if (
+            documentTypeId === undefined ||
+            applicantId === undefined ||
+            filename === undefined ||
+            originalName === undefined ||
+            mimetype === undefined ||
+            size === undefined ||
+            filePath === undefined ||
+            userId === undefined
+        ) {
+            throw new Error('Missing required fields in documentData');
+        }
+
+        const [result] = await pool.execute(
+            `INSERT INTO documents 
+              (document_type_id, applicant_id, filename, original_name, mimetype, size, file_path, status, created_by) 
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [documentTypeId, applicantId, filename, originalName, mimetype, size, filePath, status, userId]
+        );
+
+        return {
+            id: result.insertId,
+            documentTypeId,
+            applicantId,
+            filename,
+            originalName,
+            mimetype,
+            size,
+            filePath,
+            status,
+            createdBy: userId
+        };
     } catch (error) {
-      // If there's an error, attempt to delete the file that was uploaded
-      if (documentData.filePath && fs.existsSync(documentData.filePath)) {
-        fs.unlinkSync(documentData.filePath);
-      }
-      
-      console.error('Error creating document:', error);
-      throw error;
+        // If there's an error, attempt to delete the file that was uploaded
+        if (documentData.filePath && fs.existsSync(documentData.filePath)) {
+            fs.unlinkSync(documentData.filePath);
+        }
+
+        console.error('Error creating document:', error);
+        throw error;
     }
-  }
+}
+
 
   // Get all documents for an applicant
   static async getByApplicantId(applicantId) {
@@ -92,7 +107,7 @@ class Document {
   }
 
   // Update document
-  static async update(id, name, status) {
+  static async update(id, originalName, status) {
     try {
       const [result] = await pool.execute(
         'UPDATE documents SET original_name = ?, status = ? WHERE id = ?',
