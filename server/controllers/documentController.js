@@ -28,6 +28,7 @@ exports.getDocumentsByApplicant = async (req, res) => {
     console.error('Error getting documents:', error);
     res.status(500).json({
       success: false,
+      err: error,
       message: 'Server error while fetching documents'
     });
   }

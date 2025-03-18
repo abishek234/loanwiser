@@ -38,6 +38,7 @@ export const getDocument = async (id) => {
     const response = await axios.get(`${API_URL}/documents/${id}`, config);
     return response.data;
   } catch (error) {
+    console.log(error);
     throw error.response?.data || { success: false, message: 'Failed to fetch document' };
   }
 };
