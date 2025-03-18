@@ -247,7 +247,7 @@ const OtpVerification = () => {
         </Card.Body>
       </Card>
 
-      {/* Custom CSS for animations */}
+
       <style type="text/css">
         {`
           @keyframes slideUp {
