@@ -44,27 +44,38 @@ export const getDocument = async (id) => {
 };
 
 // Upload a document
-export const uploadDocument = async (applicantId, name, file) => {
-  try {
-    const config = createAuthHeader();
-    
-    // Create FormData for file upload
-    const formData = new FormData();
-    formData.append('name', name);
-    formData.append('document', file);
-
-    console.log("formdata",formData);
-    
-    const response = await axios.post(
-      `${API_URL}/applicants/${applicantId}/documents`, 
-      formData, 
-      config
-    );
-    return response.data;
-  } catch (error) {
-    throw error.response?.data || { success: false, message: 'Failed to upload document' };
-  }
-};
+export const uploadDocument = async (applicantId, documentTypeId, name, file) => {
+    try {
+      const config = createAuthHeader();
+  
+      // Check if required fields are present
+      if (!applicantId || !documentTypeId || !name || !file) {
+        console.error("Missing required parameters:", { applicantId, documentTypeId, name, file });
+        throw new Error("Missing required parameters");
+      }
+  
+      // Create FormData for file upload
+      const formData = new FormData();
+      formData.append('applicantId', applicantId);
+      formData.append('documentTypeId', documentTypeId); // ✅ Include documentTypeId
+      formData.append('name', name);
+      formData.append('document', file);
+  
+      console.log("FormData being sent:", Object.fromEntries(formData.entries()));
+  
+      const response = await axios.post(
+        `${API_URL}/applicants/${applicantId}/documents`, 
+        formData, 
+        config
+      );
+  
+      return response.data;
+    } catch (error) {
+      console.error("Error uploading document:", error);
+      throw error.response?.data || { success: false, message: 'Failed to upload document' };
+    }
+  };
+  
 
 // Update document
 export const updateDocument = async (id, name, status) => {

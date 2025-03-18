@@ -62,52 +62,47 @@ exports.getDocument = async (req, res) => {
 };
 
 // Upload a document
+
 exports.uploadDocument = async (req, res) => {
   try {
     const { applicantId } = req.params;
-    const { name } = req.body;
-    
+    const { name, documentTypeId } = req.body; // Extract documentTypeId
+
     // Validate input
     if (!name || !name.trim()) {
-      // Delete the uploaded file if it exists
       if (req.file && fs.existsSync(req.file.path)) {
         fs.unlinkSync(req.file.path);
       }
-      
-      return res.status(400).json({
-        success: false,
-        message: 'Document name is required'
-      });
+      return res.status(400).json({ success: false, message: 'Document name is required' });
     }
-    
+
+    if (!documentTypeId) {
+      if (req.file && fs.existsSync(req.file.path)) {
+        fs.unlinkSync(req.file.path);
+      }
+      return res.status(400).json({ success: false, message: 'Document type is required' });
+    }
+
     if (!req.file) {
-      return res.status(400).json({
-        success: false,
-        message: 'No file uploaded'
-      });
+      return res.status(400).json({ success: false, message: 'No file uploaded' });
     }
-    
+
     // Check if applicant exists
     const applicant = await Applicant.findById(applicantId);
-    
     if (!applicant) {
-      // Delete the uploaded file
       if (fs.existsSync(req.file.path)) {
         fs.unlinkSync(req.file.path);
       }
-      
-      return res.status(404).json({
-        success: false,
-        message: 'Applicant not found'
-      });
+      return res.status(404).json({ success: false, message: 'Applicant not found' });
     }
-    
+
     // Get user ID from authenticated request
     const userId = req.user ? req.user.id : null;
-    
+
     // Create document
     const newDocument = await Document.create({
       applicantId,
+      documentTypeId, // ✅ Include documentTypeId
       filename: req.file.filename,
       originalName: req.file.originalname,
       mimetype: req.file.mimetype,
@@ -116,25 +111,18 @@ exports.uploadDocument = async (req, res) => {
       status: 'Completed',
       userId
     });
-    
-    res.status(201).json({
-      success: true,
-      data: newDocument
-    });
+
+    res.status(201).json({ success: true, data: newDocument });
   } catch (error) {
     console.error('Error uploading document:', error);
-    
-    // Delete the uploaded file if it exists
+
     if (req.file && fs.existsSync(req.file.path)) {
       fs.unlinkSync(req.file.path);
     }
-    
-    res.status(500).json({
-      success: false,
-      message: 'Server error while uploading document'
-    });
+
+    res.status(500).json({ success: false, message: 'Server error while uploading document' });
   }
-};
+}
 
 // Update document
 exports.updateDocument = async (req, res) => {

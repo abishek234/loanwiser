@@ -289,9 +289,16 @@ const DocumentUpload = () => {
     if (selectedFiles.length === 0 || applicants.length === 0 || selectedApplicantIndex < 0) {
       return;
     }
-
+  
     const applicantId = applicants[selectedApplicantIndex].id;
+    const documentTypeId = documentTypes[selectedDocumentTypeIndex]?.id;
 
+  
+    if (!documentTypeId) {
+      console.error("Document Type ID is missing");
+      return;
+    }
+  
     // Set all files to pending status with 0% progress
     const initialStatuses = {};
     const initialProgress = {};
@@ -301,7 +308,7 @@ const DocumentUpload = () => {
     });
     setFileStatuses(initialStatuses);
     setFileProgress(initialProgress);
-
+  
     try {
       const uploadPromises = selectedFiles.map(async (file, index) => {
         // Simulate upload progress
@@ -322,12 +329,12 @@ const DocumentUpload = () => {
             }, 300 + (index * 100)); // Stagger uploads slightly
           });
         };
-
+  
         // Wait for progress simulation to complete
         await updateProgress();
         
         // Perform actual upload
-        const response = await uploadDocument(applicantId, file.name, file);
+        const response = await uploadDocument(applicantId, documentTypeId, file.name, file);
         
         // Update status for this specific file
         setFileStatuses(prev => ({
@@ -337,7 +344,7 @@ const DocumentUpload = () => {
         
         return response;
       });
-
+  
       await Promise.all(uploadPromises);
     } catch (error) {
       console.error('Upload error:', error);
@@ -352,6 +359,7 @@ const DocumentUpload = () => {
       setFileStatuses(failedStatuses);
     }
   };
+  
   
   const handleCancel = () => {
     setSelectedFiles([]); // Clear selected files
